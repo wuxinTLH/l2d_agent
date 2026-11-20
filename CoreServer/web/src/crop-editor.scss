@@ -1,0 +1,129 @@
+.ce-host.ce-host {
+  display: block;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  touch-action: auto;
+  text-align: left;
+}
+.ce-editor {
+  width: 100%;
+  min-width: 0;
+  color: #d6dfcf;
+  background: #1b211d;
+  border: 1px solid #3d493c;
+  border-radius: 7px;
+  overflow: hidden;
+  &:focus-visible { outline: 2px solid #c7f59a; outline-offset: -2px; }
+  .ce-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 9px;
+    background: #242c25;
+    border-bottom: 1px solid #3d493c;
+    button {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      min-height: 32px;
+      margin: 0;
+      padding: 5px 9px;
+      color: #d6dfcf;
+      background: #303a30;
+      border: 1px solid #4c5a46;
+      border-radius: 5px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1.3;
+      cursor: pointer;
+      &[aria-pressed='true'] { background: #c7f59a; color: #25351b; border-color: #c7f59a; }
+      &:hover:not(:disabled) { border-color: #d0edae; }
+      &:focus-visible { outline: 2px solid #e1ffc4; outline-offset: 2px; }
+      &:disabled { opacity: .4; cursor: default; }
+    }
+  }
+  .ce-status { margin-left: auto; font-size: 10px; white-space: nowrap; color: #aebda6; padding: 4px; }
+  .ce-viewport {
+    position: relative;
+    isolation: isolate;
+    display: block;
+    width: 100%;
+    height: clamp(280px, 58vh, 600px);
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    background-color: #1b201d;
+    background-image: linear-gradient(45deg, #ffffff05 25%, transparent 25%), linear-gradient(-45deg, #ffffff05 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ffffff05 75%), linear-gradient(-45deg, transparent 75%, #ffffff05 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    &:focus-visible { outline: 2px solid #b8dc93; outline-offset: -2px; }
+    &[data-tool='draw'] { cursor: crosshair; }
+    &[data-tool='select'] { cursor: default; }
+    &[data-tool='pan'] { cursor: grab; .ce-rect, .ce-handle { cursor: grab; } }
+    &[data-tool='pan'].ce-dragging { cursor: grabbing; .ce-rect, .ce-handle { cursor: grabbing; } }
+  }
+  img.ce-source {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    max-width: none;
+    max-height: none;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    object-fit: fill;
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+  .ce-overlay { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .ce-rect {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px solid #c7f59a;
+    background: #c7f59a12;
+    pointer-events: auto;
+    cursor: move;
+    .ce-rect-label {
+      position: absolute;
+      top: 0;
+      left: 0;
+      max-width: min(180px, 100%);
+      padding: 3px 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #c7f59a;
+      color: #25351b;
+      font-size: 10px;
+      line-height: 1.4;
+      pointer-events: none;
+    }
+    &.ce-selected { z-index: 1; border: 2px solid #f1ffd8; background: #c7f59a25; }
+  }
+  .ce-handle {
+    position: absolute;
+    display: block;
+    width: 10px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    background: #f1ffd8;
+    border: 1px solid #35502b;
+    border-radius: 2px;
+    &::after { content: ''; position: absolute; inset: -4px; }
+  }
+  .ce-handle-nw { left: 0; top: 0; cursor: nwse-resize; }
+  .ce-handle-n { left: 50%; top: 0; cursor: ns-resize; }
+  .ce-handle-ne { left: 100%; top: 0; cursor: nesw-resize; }
+  .ce-handle-e { left: 100%; top: 50%; cursor: ew-resize; }
+  .ce-handle-se { left: 100%; top: 100%; cursor: nwse-resize; }
+  .ce-handle-s { left: 50%; top: 100%; cursor: ns-resize; }
+  .ce-handle-sw { left: 0; top: 100%; cursor: nesw-resize; }
+  .ce-handle-w { left: 0; top: 50%; cursor: ew-resize; }
+  .ce-hint { padding: 8px 10px; color: #9bab92; font-size: 10px; line-height: 1.7; border-top: 1px solid #343f33; }
+}

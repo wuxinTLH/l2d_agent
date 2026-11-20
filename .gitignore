@@ -1,0 +1,10 @@
+.local/
+.mnemon/
+.dsh/
+node_modules/
+CoreServer/web/dist/
+bin/
+*.log
+.env
+.env.*
+!.env.example
