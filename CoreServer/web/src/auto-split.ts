@@ -17,7 +17,7 @@ export interface AutoSplitDeps {
   onComplete: (result: AutoSplitResponse, source: Asset) => void
 }
 
-const defaultParts = ['head', 'hair', 'body', 'left_arm', 'right_arm', 'legs']
+const defaultParts = ['左眼睛', '右眼睛', '头（不含眼睛及嘴及耳朵及头发）', '左手', '右手', '嘴', '身体（不含头及手及头发）', '左耳朵', '右耳朵', '头发']
 
 /** Mount once; call update() after the parent changes the selected source. Never selects outputs. */
 export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update(): void } {
@@ -40,7 +40,7 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
   names.spellcheck = false
   names.setAttribute('aria-label', '部件名称，逗号或换行分隔，1 至 12 个')
   label.append(names)
-  const hint = element('p', 'asp-hint', '使用逗号（中英文均可）或换行分隔。名称请描述要保留的部件；每个名称单独生成一张图片。')
+  const hint = element('p', 'asp-hint', '超精细拆分默认 10 个部件，左右以角色自身为准。使用逗号（中英文均可）或换行分隔；每个名称单独请求一张图片（默认 10 次可能计费调用）。保留细线、轮廓和透明边缘的实际质量取决于接口，请检查结果。')
   const validation = element('p', 'asp-validation')
   validation.setAttribute('aria-live', 'polite')
   const fees = element('p', 'asp-fees')

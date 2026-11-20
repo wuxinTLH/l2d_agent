@@ -18,6 +18,9 @@ func main() {
 	data := flag.String("data", ".local", "local workspace data directory")
 	web := flag.String("web", "CoreServer/web/dist", "built frontend directory")
 	flag.Parse()
+	if e := os.MkdirAll("Live2DCubism", 0755); e != nil {
+		log.Fatalf("create Live2DCubism directory: %v", e)
+	}
 	host, _, e := net.SplitHostPort(*addr)
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		log.Fatal("addr must contain a loopback IP and port")

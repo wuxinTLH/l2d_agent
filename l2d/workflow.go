@@ -19,7 +19,11 @@ func Probe(ctx context.Context, endpoint string) error {
 // Discover searches only common installation directories, not entire disks.
 // It returns suggestions and never changes configuration or launches a program.
 func Discover() []string {
-	roots := []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)"), os.Getenv("LOCALAPPDATA")}
+	roots := []string{}
+	if cwd, err := os.Getwd(); err == nil {
+		roots = append(roots, filepath.Join(cwd, "L2dViewerEX"), filepath.Join(cwd, "live2dViewerEX"))
+	}
+	roots = append(roots, os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)"), os.Getenv("LOCALAPPDATA"))
 	if home, err := os.UserHomeDir(); err == nil {
 		roots = append(roots, filepath.Join(home, "Desktop"), filepath.Join(home, "Downloads"))
 	}
@@ -33,6 +37,8 @@ func discoverIn(roots []string) []string {
 			continue
 		}
 		patterns := []string{
+			filepath.Join(root, "Live2DViewerEX.exe"),
+			filepath.Join(root, "steamapps", "common", "Live2DViewerEX", "Live2DViewerEX.exe"),
 			filepath.Join(root, "Live2DViewerEX", "Live2DViewerEX.exe"),
 			filepath.Join(root, "Live2DViewerEX*", "Live2DViewerEX.exe"),
 			filepath.Join(root, "Steam", "steamapps", "common", "Live2DViewerEX", "Live2DViewerEX.exe"),

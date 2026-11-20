@@ -22,6 +22,7 @@ type Config struct {
 	ImageBaseURL     string `json:"imageBaseUrl"`
 	ImageModel       string `json:"imageModel"`
 	ImageAPIKey      string `json:"imageApiKey,omitempty"`
+	CubismExecutable string `json:"cubismExecutable"`
 	ViewerExecutable string `json:"viewerExecutable"`
 	ExAPIURL         string `json:"exapiUrl"`
 }
@@ -78,7 +79,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
 		c := s.snapshot()
-		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "viewerExecutable": c.ViewerExecutable, "exapiUrl": c.ExAPIURL})
+		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "cubismExecutable": c.CubismExecutable, "viewerExecutable": c.ViewerExecutable, "exapiUrl": c.ExAPIURL})
 	})
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("GET /api/assets", func(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +147,16 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		jsonOut(w, 201, a)
+	})
+	mux.HandleFunc("POST /api/l2d/cubism/discover", func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, 200, map[string]any{"candidates": l2d.DiscoverCubism(), "note": "Cubism Editor paths only; installers excluded. Verify the path and save it in settings. No automatic launch or mesh/rig generation."})
+	})
+	mux.HandleFunc("POST /api/l2d/cubism/launch", func(w http.ResponseWriter, r *http.Request) {
+		if e := l2d.LaunchCubism(s.snapshot().CubismExecutable); e != nil {
+			fail(w, e)
+			return
+		}
+		jsonOut(w, 200, map[string]string{"status": "started", "note": "Cubism process started; editor readiness, license and project state are unverified."})
 	})
 	mux.HandleFunc("GET /api/l2d/status", func(w http.ResponseWriter, r *http.Request) {
 		c := s.snapshot()
@@ -248,6 +259,7 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		ImageBaseURL     string  `json:"imageBaseUrl"`
 		ImageModel       string  `json:"imageModel"`
 		ImageAPIKey      *string `json:"imageApiKey"`
+		CubismExecutable *string `json:"cubismExecutable"`
 		ViewerExecutable string  `json:"viewerExecutable"`
 		ExAPIURL         string  `json:"exapiUrl"`
 	}
@@ -269,6 +281,9 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	c := s.config
 	c.ImageBaseURL = v.ImageBaseURL
 	c.ImageModel = v.ImageModel
+	if v.CubismExecutable != nil {
+		c.CubismExecutable = *v.CubismExecutable
+	}
 	c.ViewerExecutable = v.ViewerExecutable
 	c.ExAPIURL = v.ExAPIURL
 	if v.ImageAPIKey != nil {

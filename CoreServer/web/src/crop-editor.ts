@@ -45,7 +45,7 @@ export function mountCropEditor(host: HTMLElement, options: CropEditorOptions): 
   overlay.className = 'ce-overlay'
   const hint = document.createElement('div')
   hint.className = 'ce-hint'
-  hint.textContent = '滚轮缩放 · 空格 / 中键拖动平移 · 选择后拖动边角调整 · Delete 删除'
+  hint.textContent = '滚轮缩放 · Ctrl / 空格 / 中键拖动平移 · 选择后拖动边角调整 · Delete 删除'
   const status = document.createElement('span')
   status.className = 'ce-status'
   status.setAttribute('role', 'status')
@@ -168,7 +168,7 @@ export function mountCropEditor(host: HTMLElement, options: CropEditorOptions): 
     const index = rect ? Number(rect.dataset.index) : -1
     let kind: Gesture['kind']
     let handle: ResizeHandle | undefined
-    if (event.button === 1 || space || tool === 'pan') { kind = 'pan'; fitMode = false }
+    if (event.button === 1 || event.ctrlKey || space || tool === 'pan') { kind = 'pan'; fitMode = false }
     else if (index >= 0) {
       activeIndex = index; handle = target.dataset.handle as ResizeHandle | undefined
       kind = handle ? 'resize' : 'move'

@@ -25,6 +25,23 @@ func TestDiscoverBounded(t *testing.T) {
 		t.Fatalf("unexpected discovery: %v", found)
 	}
 }
+func TestDiscoverProjectViewer(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	dir := filepath.Join(root, "L2dViewerEX")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(dir, "Live2DViewerEX.exe")
+	if err := os.WriteFile(exe, []byte("fixture-not-an-executable"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	found := Discover()
+	if len(found) == 0 || found[0] != exe {
+		t.Fatalf("project path not preferred: %v", found)
+	}
+}
+
 func TestProbeEchoAndMismatch(t *testing.T) {
 	for _, mismatch := range []bool{false, true} {
 		t.Run(map[bool]string{false: "echo", true: "mismatch"}[mismatch], func(t *testing.T) {

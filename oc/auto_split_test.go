@@ -155,7 +155,7 @@ func TestAutoSplitRejectsInvalidBeforeRequests(t *testing.T) {
 		t.Fatalf("invalid input made %d paid requests", calls)
 	}
 	names, err := autoSplitNames(nil)
-	if err != nil || len(names) != 6 {
+	if err != nil || len(names) != 10 {
 		t.Fatal("missing defaults")
 	}
 }

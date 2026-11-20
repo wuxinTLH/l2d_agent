@@ -48,7 +48,7 @@ npm run dev
 
 EXAPI 默认地址提示为 `ws://127.0.0.1:10086/api`，以实际配置为准。官方注册回显对象可用于连接测试：`{"msg":10000,"msgId":1}`。只有 msg 10000 等待关联回显，其他消息仅返回 `{status:"sent",verified:false,note:...}`，表示已写入连接，不是动作成功。超时可能已经送达，切勿盲目重复执行。模型检查针对 Cubism `.model3.json`，EXAPI 加载所需 ViewerEX `.model.json` 配置不保证等同于直接加载 Cubism 文件。
 
-一键 API 拆分通过 `POST /api/oc/auto-split` 发送 `{assetId,parts:string[]}`，返回 `{id,parts:Asset[],failures:[{name,error}],manifestUrl,note}`。每个名称一次独立的图片编辑请求，默认 6 个，最多 12 个；没有自动重试。透明 / 近白空图检测不等于语义准确性验证。结果的原图位置与遮挡关系需人工检查。
+一键 API 拆分通过 `POST /api/oc/auto-split` 发送 `{assetId,parts:string[]}`，返回 `{id,parts:Asset[],failures:[{name,error}],manifestUrl,note}`。每个名称一次独立的图片编辑请求，默认 10 个（左右眼睛、头、左右手、嘴、身体、左右耳朵、头发），最多 12 个；没有自动重试。透明 / 近白空图检测不等于语义准确性验证。结果的原图位置与遮挡关系需人工检查。
 
 前端 API 拆分请求超时 40 分钟（最多 12 次顺序调用），其他 OC 请求超时 240 秒，其他请求 20 秒；超时明确提示后台可能仍在处理，建议先刷新核对再重试。
 
