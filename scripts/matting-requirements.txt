@@ -1,0 +1,8 @@
+# Local background-removal runtime (Python 3.11); GPU first, CPU fallback.
+# Install: .local/matting-venv/Scripts/python.exe -m pip install -r scripts/matting-requirements.txt
+# Install exactly ONE ONNX Runtime distribution (all share the onnxruntime module).
+# When migrating Windows CPU installs, uninstall onnxruntime before installing this.
+# DirectML uses Windows DirectX 12; no system CUDA/cuDNN installation required.
+rembg==2.0.87
+onnxruntime-directml==1.24.4; sys_platform == "win32"
+onnxruntime==1.32.0; sys_platform != "win32"

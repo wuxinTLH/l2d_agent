@@ -4,6 +4,8 @@ import { assetUrl, validateParts, type Asset, type Part } from './domain'
 import { mountCropEditor } from './crop-editor'
 import { mountLiveWorkflow } from './live-workflow'
 import { mountAutoSplit } from './auto-split'
+import { mountAssetLibrary } from './asset-library'
+let assetLibrary: ReturnType<typeof mountAssetLibrary> | undefined
 let autoSplitPanel: ReturnType<typeof mountAutoSplit> | undefined
 let cropEditor: ReturnType<typeof mountCropEditor> | undefined
 let cropAssetId = ''
@@ -25,7 +27,7 @@ const icons: Record<string,string> = {
 const icon = (name:string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] ?? icons.spark}</svg>`
 const esc = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!))
 const $ = <T extends HTMLElement = HTMLElement>(selector:string) => document.querySelector<T>(selector)!
-interface Config { imageBaseUrl:string; imageModel:string; hasImageKey:boolean; cubismExecutable?:string }
+interface Config { imageBaseUrl:string; imageModel:string; hasImageKey:boolean; cubismExecutable?:string; mattingDevice?:string }
 let assets:Asset[] = []
 let selected:Asset | undefined
 let parts:Part[] = []
@@ -55,7 +57,7 @@ $('#app').innerHTML = `
 <section id="split-view" class="split-layout hidden"><div id="auto-split" style="grid-column:1/-1;min-width:0"></div><section class="panel"><div class="panel-heading"><h2>${icon('crop')}手动裁切画布</h2><span class="tiny-label">PIXEL COORDINATES</span></div><div class="info-strip">绘制框后可选中移动、拖动边角调整。滚轮缩放，按住 Ctrl / 空格或中键拖动画布；坐标始终对应原图像素。仅矩形裁切，不执行语义分割。</div><div class="crop-stage checker" id="crop-stage"><p class="empty-copy">请先在角色创作中生成或选择素材</p></div><div class="preview-footer"><span id="crop-meta">尚未选择素材</span><span>坐标原点：左上角 · 单位 px</span></div></section><section class="panel parts-panel"><div class="panel-heading"><h2>部件列表 <span id="parts-count" class="count">0</span></h2><button class="icon-button" id="add-part" aria-label="新增裁切部件">${icon('plus')}</button></div><div id="parts-list" class="parts-list"><p class="empty-copy">添加矩形，开始整理部件。</p></div><div class="parts-actions"><p class="warning-copy">裁切不会补全被遮挡的内容。用于 Live2D 的独立图层通常还需去背景、修边和补绘。</p><button id="split-submit" class="primary-button" disabled>${icon('crop')}导出裁切部件</button></div></section><section class="panel split-output"><div class="panel-heading"><h2>拆分输出</h2><a id="manifest" class="text-button hidden" target="_blank" rel="noopener">下载 manifest ↗</a></div><div id="split-results" class="output-grid"><p class="empty-copy">完成后在这里查看真实导出的部件。</p></div></section></section>
 <section id="live2d-view" class="live-layout hidden"><div id="live-workflow" style="grid-column:1/-1;min-width:0"></div><section class="panel"><div class="panel-heading"><h2>本地模型检查</h2><span class="tiny-label">INSPECT</span></div><form id="inspect-form"><label class="field-label" for="model-path">Cubism .model3.json 文件绝对路径</label><input id="model-path" placeholder="D:/Models/MyCharacter/model.model3.json" required><p class="helper">路径由本地 Go 服务读取，不会从浏览器上传整个目录。</p><button type="submit" class="secondary-button">检查模型结构 ${icon('arrow')}</button></form><pre id="inspect-output" class="json-output">尚未检查模型。</pre></section></section>
 <section class="panel library"><div class="panel-heading"><h2>${icon('grid')}本地素材库 <span id="asset-count" class="count">0</span></h2><button class="text-button" id="refresh-assets">刷新 ${icon('refresh')}</button></div><div id="asset-list" class="asset-list"><p class="empty-copy">正在读取本地素材…</p></div></section><footer class="page-footer"><span><span class="footer-logo">人人皆可建模</span> 让每个角色，从灵感走向鲜活。</span><span>LOCAL FIRST <i>·</i> OC & LIVE2D WORKSPACE</span></footer></main></div>
-<dialog id="config-dialog"><form id="config-form"><div class="panel-heading"><h2>${icon('settings')}工作室设置</h2><button id="close-config" type="button" class="icon-button" aria-label="关闭设置">${icon('close')}</button></div><p class="helper">配置由本机服务保存。密钥仅在提交时发送，不会存入浏览器存储或重新显示。</p><p class="warning-copy">注意：API Key 由后端以明文保存在本地配置文件中。请保护配置文件与机器访问权限，不要提交到版本库。</p><h3>图像生成 API</h3><label class="field-label" for="image-base">API Base URL</label><input id="image-base" type="url" placeholder="https://api.example.com/v1" required><label class="field-label" for="image-model">模型名称</label><input id="image-model" placeholder="填写服务支持的模型标识" required><label class="field-label" for="image-key">API Key <span id="key-state">尚未读取</span></label><input id="image-key" type="password" autocomplete="new-password" placeholder="留空保留已保存的密钥"><h3>Live2D Cubism Editor · 模型制作</h3><p class="helper"><a href="https://www.live2d.com/zh-CHS/cubism/download/editor/" target="_blank" rel="noopener noreferrer">官方下载 Cubism Editor ↗</a> · 默认查找项目根目录的 Live2DCubism 文件夹。请将官方安装完成后的完整编辑器和依赖放入该文件夹，或填写真实安装目录中的编辑器可执行文件路径。安装包不等于编辑器，不能将安装程序作为启动路径；本项目不附带软件本体。</p><label class="field-label" for="cubism-executable">Cubism Editor 可执行文件绝对路径（可选）</label><input id="cubism-executable" placeholder="填写已安装的 Cubism Editor 程序绝对路径"><p class="helper">路径发现仅列出候选，请核对后手动填写并保存。启动编辑器不等于自动制作网格、绑定或生成 moc3。</p><div class="dialog-footer"><span id="config-state" class="helper" role="status"></span><button class="primary-button" id="save-config" type="submit">保存配置 ${icon('check')}</button></div></form></dialog><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>`
+<dialog id="config-dialog"><form id="config-form"><div class="panel-heading"><h2>${icon('settings')}工作室设置</h2><button id="close-config" type="button" class="icon-button" aria-label="关闭设置">${icon('close')}</button></div><p class="helper">配置由本机服务保存。密钥仅在提交时发送，不会存入浏览器存储或重新显示。</p><p class="warning-copy">注意：API Key 由后端以明文保存在本地配置文件中。请保护配置文件与机器访问权限，不要提交到版本库。</p><h3>图像生成 API</h3><label class="field-label" for="image-base">API Base URL</label><input id="image-base" type="url" placeholder="https://api.example.com/v1" required><label class="field-label" for="image-model">模型名称</label><input id="image-model" placeholder="填写服务支持的模型标识" required><label class="field-label" for="image-key">API Key <span id="key-state">尚未读取</span></label><input id="image-key" type="password" autocomplete="new-password" placeholder="留空保留已保存的密钥"><h3>本地 AI 去背景 · 推理设备</h3><label class="field-label" for="matting-device">运行设备</label><select id="matting-device"><option value="gpu">GPU 优先（不可用或失败时自动降级 CPU）</option><option value="cpu">仅 CPU</option></select><p class="helper">默认 GPU 优先；需要可用的本地 ONNX GPU 后端。去背景在本机完成，不产生额外图片 API 请求。</p><h3>Live2D Cubism Editor · 模型制作</h3><p class="helper"><a href="https://www.live2d.com/zh-CHS/cubism/download/editor/" target="_blank" rel="noopener noreferrer">官方下载 Cubism Editor ↗</a> · 默认查找项目根目录的 Live2DCubism 文件夹。请将官方安装完成后的完整编辑器和依赖放入该文件夹，或填写真实安装目录中的编辑器可执行文件路径。安装包不等于编辑器，不能将安装程序作为启动路径；本项目不附带软件本体。</p><label class="field-label" for="cubism-executable">Cubism Editor 可执行文件绝对路径（可选）</label><input id="cubism-executable" placeholder="填写已安装的 Cubism Editor 程序绝对路径"><p class="helper">路径发现仅列出候选，请核对后手动填写并保存。启动编辑器不等于自动制作网格、绑定或生成 moc3。</p><div class="dialog-footer"><span id="config-state" class="helper" role="status"></span><button class="primary-button" id="save-config" type="submit">保存配置 ${icon('check')}</button></div></form></dialog><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>`
 
 async function api<T>(path:string, init:RequestInit = {}):Promise<T> {
   const controller = new AbortController()
@@ -115,26 +117,34 @@ function upsert(asset:Asset) {
   assetUrl(asset.url)
   assets = [asset, ...assets.filter(a => a.id !== asset.id)]; selectAsset(asset)
 }
-function renderAssets() {
-  $('#asset-count').textContent = String(assets.length)
-  $('#asset-list').innerHTML = assets.length ? assets.map(a => `<button class="asset-card ${selected?.id === a.id ? 'selected' : ''}" data-asset="${esc(a.id)}" aria-pressed="${selected?.id === a.id}"><div class="asset-thumb checker"><img src="${esc(assetUrl(a.url))}" alt="" loading="lazy">${selected?.id === a.id ? `<span class="selected-mark">${icon('check')}</span>` : ''}</div><strong>${esc(a.name)}</strong><span>${a.width} × ${a.height}<i>IMAGE</i></span></button>`).join('') : '<div class="library-empty">'+icon('image')+'<div><strong>你的角色档案，从这里开始</strong><p>生成或导入的图片会保存在本地，并出现在素材库。</p></div></div>'
+function renderAssets() { assetLibrary?.update() }
+function clearSelectedAsset() {
+  cropEditor?.destroy(); cropEditor = undefined; cropAssetId = ''; selected = undefined; parts = []; activePart = -1
+  $('#preview').innerHTML = '<p class="empty-copy">请选择或导入素材进行预览。</p>'
+  $('#preview-meta').textContent = 'NO ASSET SELECTED'; $('#selected-name').textContent = '尚未选择素材'
+  const source = $<HTMLAnchorElement>('#download-source'); source.classList.add('hidden'); source.removeAttribute('href')
+  $('#crop-stage').innerHTML = '<p class="empty-copy">请先选择素材</p>'; $('#crop-meta').textContent = '尚未选择素材'
+  $('#split-results').innerHTML = '<p class="empty-copy">请选择素材后重新裁切。</p>'; $('#manifest').classList.add('hidden'); $('#manifest').removeAttribute('href')
+  renderParts(); updateSelectionButtons(); autoSplitPanel?.update()
 }
-async function loadAssets() { const result = await api<Asset[]>('/assets'); if (!Array.isArray(result)) throw new Error('素材列表响应不是数组。'); assets = result; renderAssets() }
+async function loadAssets() { const result = await api<Asset[]>('/assets'); if (!Array.isArray(result)) throw new Error('素材列表响应不是数组。'); assets = result; if (selected && !assets.some(a=>a.id === selected!.id)) clearSelectedAsset(); renderAssets() }
 async function refresh() {
   const results = await Promise.allSettled([api<{status:string;modules:Record<string,unknown>}>('/health'), loadAssets(), loadConfig()])
   connected = results[0].status === 'fulfilled' && ['ok','healthy'].includes(results[0].value.status)
   $('#connection').className = `connection ${connected ? 'online' : 'offline'}`; $('#connection').innerHTML = `<i></i>${connected ? '本地服务已连接' : '本地服务未就绪'}`
   if (results[0].status === 'fulfilled') $('#connection').title = JSON.stringify(results[0].value.modules)
-  if (results[1].status === 'rejected') $('#asset-list').innerHTML = '<p class="empty-copy error-text">素材库读取失败。请检查本地服务后点击刷新。</p>'
+  if (results[1].status === 'rejected') $('.library [data-list]').innerHTML = '<p class="empty-copy error-text">素材库读取失败。请检查本地服务后点击刷新。</p>'
   if (results.some(r => r.status === 'rejected')) notify('部分服务尚未就绪。可先在设置中配置，启动后端后重新检测。',true)
 }
 async function loadConfig() {
   config = await api<Config>('/config')
   $<HTMLInputElement>('#image-base').value = config.imageBaseUrl ?? ''; $<HTMLInputElement>('#image-model').value = config.imageModel ?? ''
   $<HTMLInputElement>('#cubism-executable').value = config.cubismExecutable ?? ''
+  $<HTMLSelectElement>('#matting-device').value = config.mattingDevice ?? 'gpu'
   $('#key-state').textContent = config.hasImageKey ? '已保存 · 不回显' : '未配置'
 }
 function renderParts() {
+  autoSplitPanel?.update()
   $('#parts-count').textContent = String(parts.length)
   $('#parts-list').innerHTML = parts.length ? parts.map((p,i) => `<div class="part-row ${activePart === i ? 'active' : ''}" data-part-row="${i}"><div class="part-title"><span class="part-number">${String(i+1).padStart(2,'0')}</span><input aria-label="部件 ${i+1} 名称" data-part="${i}" data-field="name" value="${esc(p.name)}" maxlength="100"><button class="icon-button remove-part" data-remove="${i}" aria-label="删除部件 ${esc(p.name)}">${icon('close')}</button></div><div class="part-fields">${(['x','y','width','height'] as const).map(key => `<label>${{x:'X',y:'Y',width:'宽 W',height:'高 H'}[key]}<input type="number" step="1" min="${key === 'width' || key === 'height' ? 1 : 0}" data-part="${i}" data-field="${key}" value="${p[key]}" aria-label="${esc(p.name)} ${key}"></label>`).join('')}</div></div>`).join('') : '<p class="empty-copy">拖动画布或点击 + 添加矩形部件。</p>'
   updateSelectionButtons()
@@ -153,8 +163,11 @@ function renderOverlays() { cropEditor?.update(parts,activePart) }
 document.querySelectorAll<HTMLElement>('[data-mode]').forEach(el => el.addEventListener('click',()=>switchMode(el.dataset.mode as typeof mode)))
 $('#go-split').addEventListener('click',()=>switchMode('split'))
 $('#refresh').addEventListener('click',()=>void busy($<HTMLButtonElement>('#refresh'),refresh))
-$('#refresh-assets').addEventListener('click',()=>void busy($<HTMLButtonElement>('#refresh-assets'),loadAssets))
-$('#asset-list').addEventListener('click', event => { const id = (event.target as HTMLElement).closest<HTMLElement>('[data-asset]')?.dataset.asset; const asset = assets.find(a=>a.id === id); if (asset) selectAsset(asset) })
+assetLibrary = mountAssetLibrary($('.library'), {
+  getAssets:()=>assets, getPreviewId:()=>selected?.id, preview:selectAsset, refresh:loadAssets,
+  remove:id=>api(`/assets/${encodeURIComponent(id)}`,{method:'DELETE'}), post, notify,
+  onDeleted:ids=> { assets = assets.filter(a=>!ids.includes(a.id)); if(selected && ids.includes(selected.id)) clearSelectedAsset(); renderAssets() },
+})
 $('#prompt').addEventListener('input',()=> { $('#prompt-count').textContent = `${$<HTMLTextAreaElement>('#prompt').value.length} / 16000` })
 document.querySelectorAll<HTMLElement>('[data-prompt]').forEach(el=>el.addEventListener('click',()=> { const input = $<HTMLTextAreaElement>('#prompt'); input.value = [input.value,el.dataset.prompt].filter(Boolean).join('，'); input.dispatchEvent(new Event('input')); input.focus() }))
 $('#generate-form').addEventListener('submit', event => { event.preventDefault(); void busy($<HTMLButtonElement>('.generate-button'),async()=> { const prompt = $<HTMLTextAreaElement>('#prompt').value.trim(); if (!prompt) throw new Error('请先描述你的角色。'); upsert(await post<Asset>('/oc/generate',{prompt,negativePrompt:$<HTMLTextAreaElement>('#negative').value.trim(),size:$<HTMLSelectElement>('#size').value})); notify('角色已生成并保存至本地素材库。') }) })
@@ -175,9 +188,9 @@ const dialog = $<HTMLDialogElement>('#config-dialog')
 $('#open-config').addEventListener('click',()=> {$('#config-state').textContent = config ? '' : '尚未加载配置；可填写后尝试保存。';dialog.showModal()})
 $('#close-config').addEventListener('click',()=>dialog.close())
 dialog.addEventListener('close',()=> { $<HTMLInputElement>('#image-key').value = '' })
-$('#config-form').addEventListener('submit',event=> { event.preventDefault();void busy($<HTMLButtonElement>('#save-config'),async()=> { const keyInput = $<HTMLInputElement>('#image-key'); const body:Record<string,string> = {imageBaseUrl:$<HTMLInputElement>('#image-base').value.trim(),imageModel:$<HTMLInputElement>('#image-model').value.trim(),cubismExecutable:$<HTMLInputElement>('#cubism-executable').value.trim()}; if(keyInput.value.trim()) body.imageApiKey = keyInput.value.trim(); keyInput.value = ''; $('#config-state').textContent = '正在保存…'; try { await api('/config',{method:'PUT',body:JSON.stringify(body)}); $('#config-state').textContent = '配置已保存。'; notify('配置已由本地服务保存。'); await loadConfig() } catch(error) { $('#config-state').textContent = '保存或回读失败，请重新检查配置。'; throw error } }) })
+$('#config-form').addEventListener('submit',event=> { event.preventDefault();void busy($<HTMLButtonElement>('#save-config'),async()=> { const keyInput = $<HTMLInputElement>('#image-key'); const body:Record<string,string> = {imageBaseUrl:$<HTMLInputElement>('#image-base').value.trim(),imageModel:$<HTMLInputElement>('#image-model').value.trim(),cubismExecutable:$<HTMLInputElement>('#cubism-executable').value.trim(),mattingDevice:$<HTMLSelectElement>('#matting-device').value}; if(keyInput.value.trim()) body.imageApiKey = keyInput.value.trim(); keyInput.value = ''; $('#config-state').textContent = '正在保存…'; try { await api('/config',{method:'PUT',body:JSON.stringify(body)}); $('#config-state').textContent = '配置已保存。'; notify('配置已由本地服务保存。'); await loadConfig() } catch(error) { $('#config-state').textContent = '保存或回读失败，请重新检查配置。'; throw error } }) })
 $('#inspect-form').addEventListener('submit', event=> {event.preventDefault();void busy($<HTMLButtonElement>('#inspect-form button'),async()=> {const path = $<HTMLInputElement>('#model-path').value.trim();if(!path) throw new Error('请填写模型绝对路径。');try {$('#inspect-output').textContent = JSON.stringify(await post('/l2d/inspect',{modelPath:path}),null,2)} catch(error) {$('#inspect-output').textContent = '模型检查失败；请检查路径、文件和服务状态。';throw error} })})
-autoSplitPanel = mountAutoSplit($('#auto-split'),{getSelected:()=>selected,post,notify,onComplete:()=>{void loadAssets().catch(()=>notify('部件已生成，素材库刷新失败；请手动刷新，勿重复付费拆分。',true))}})
+autoSplitPanel = mountAutoSplit($('#auto-split'),{getSelected:()=>selected,getBounds:()=>parts,post,notify,onComplete:()=>{void loadAssets().catch(()=>notify('部件已生成，素材库刷新失败；请手动刷新，勿重复付费拆分。',true))}})
 mountLiveWorkflow($('#live-workflow'),{post,notify,openSettings:()=>$('#open-config').click()})
 updateSelectionButtons()
 void refresh()

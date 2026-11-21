@@ -12,6 +12,7 @@ export interface AutoSplitResponse {
 
 export interface AutoSplitDeps {
   getSelected: () => Asset | undefined
+  getBounds?: () => {name:string;x:number;y:number;width:number;height:number}[]
   post: <T>(path: string, body: unknown) => Promise<T>
   notify: (s: string, error?: boolean) => void
   onComplete: (result: AutoSplitResponse, source: Asset) => void
@@ -40,7 +41,7 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
   names.spellcheck = false
   names.setAttribute('aria-label', '部件名称，逗号或换行分隔，1 至 12 个')
   label.append(names)
-  const hint = element('p', 'asp-hint', '超精细拆分默认 10 个部件，左右以角色自身为准。使用逗号（中英文均可）或换行分隔；每个名称单独请求一张图片（默认 10 次可能计费调用）。保留细线、轮廓和透明边缘的实际质量取决于接口，请检查结果。')
+  const hint = element('p', 'asp-hint', '选中素材库中的原图即可直接 API 拆分，分组不影响选图。可选：在下方原图画出部件框，并将框命名为与本列表完全一致的名称（如“左眼睛”）。生成结果会按真实透明轮廓等比放入同名框，再按有效像素紧凑保存，记录原图坐标供 PSD 还原，避免眼睛/手被放大成整图；无同名框只能检查尺寸，无法保证对齐。默认 10 个部件，每个名称一次可能计费请求。左右以角色自身为准。接口返图缺少可用透明背景时，将调用本机 rembg/u2netp AI 去背景，不会因此再次请求付费接口。AI 蒙版可能丢失细线，请检查；去背景不能自动恢复原图比例。')
   const validation = element('p', 'asp-validation')
   validation.setAttribute('aria-live', 'polite')
   const fees = element('p', 'asp-fees')
@@ -93,7 +94,9 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
     const parts = parseNames()
     const error = invalidReason(parts)
     sourceName.textContent = selected ? `${busy ? '本次锁定原图' : '当前选中原图'}：${selected.name} · ${selected.width} × ${selected.height} px` : '当前未选择原图：请先在素材库选中一张图片。'
-    validation.textContent = error
+    const rectangles = deps.getBounds?.() ?? []
+    const missing = parts.filter(name => !rectangles.some(rect => rect.name.trim() === name))
+    validation.textContent = error || (selected && missing.length ? `可直接拆分；${missing.length} 个部件未设置定位框，无法保证比例与位置。需要精确叠合时请添加同名框。` : '')
     names.setAttribute('aria-invalid', String(Boolean(error)))
     fees.textContent = `本次将发起 ${parts.length} 次独立的付费图像编辑 API 请求。后端每个部件都会重新上传同一张原始图片一次，不以上一个部件为输入；费用按服务商实际规则计算，失败也可能计费。不会自动重试。点击即开始，不再弹出确认。`
     start.textContent = busy ? `正在拆分 · ${parts.length} 次请求` : `一键 API 拆分 · ${parts.length} 次请求`
@@ -131,6 +134,7 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
       image.addEventListener('error', () => { imageStatus.textContent = '预览加载失败，可尝试下载原文件。' })
       preview.append(image)
       card.append(preview, element('h4', 'asp-part-name', part.name), element('p', 'asp-dimensions', `${part.width} × ${part.height} px · 完整适应显示`), imageStatus)
+      if(part.processingWarning) card.append(element('p','asp-warning',`待手动处理：${part.processingWarning}`))
       try {
         image.src = assetUrl(part.url)
         card.append(downloadLink(part.url, '下载部件图片', part.name))
@@ -145,20 +149,36 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
       failureSection.append(element('h4', 'asp-failure-title', '未成功的部件（未自动重试）'))
       const list = element('ul', 'asp-failure-list')
       for (const failure of result.failures) list.append(element('li', 'asp-failure', `${failure.name}：${failure.error}`))
-      failureSection.append(list, element('p', 'asp-hint', '如需重试，请先核对服务商计费和已有输出，再手动修改上方部件列表。重新点击会产生新的付费请求。'))
+      failureSection.append(list, element('p', 'asp-hint', '下方按钮仅重试失败部位，使用原任务的原图和定位框，保留成功结果。手动点击会产生新的付费请求；网络结果未知时请先检查素材库及服务商记录。'))
     }
     manifest.replaceChildren()
     if (result.manifestUrl) {
-      try { manifest.append(downloadLink(result.manifestUrl, '下载拆分清单 JSON')) }
+      try { manifest.append(downloadLink(result.manifestUrl, '下载本轮请求清单 JSON（重试清单不含此前成功部位）')) }
       catch { manifest.append(element('p', 'asp-error', '拆分清单地址无效。')) }
     }
     manifest.append(element('p', 'asp-hint', `任务 ID：${result.id} · 保留原图选择，不会自动选中新输出。`))
   }
+  let lastResult: AutoSplitResponse | undefined
+  let lastSource: Asset | undefined
+  let lastBounds: Record<string,{x:number;y:number;width:number;height:number}> = {}
+  const retry = element('button','asp-start','仅重试失败部位')
+  retry.type = 'button'
+  retry.hidden = true
+  results.append(retry)
+  function refreshRetry() {
+    retry.hidden = !lastResult?.failures.length
+    retry.disabled = busy
+    retry.textContent = `仅重试失败部位 · ${lastResult?.failures.length ?? 0} 次可能计费请求`
+  }
+  retry.addEventListener('click',()=> {
+    if (!busy && lastResult && lastSource) void run(true)
+  })
   names.addEventListener('input', update)
-  start.addEventListener('click', async () => {
+  start.addEventListener('click', () => { void run(false) })
+  async function run(retrying:boolean) {
     if (busy) return
-    const selected = deps.getSelected()
-    const parts = parseNames()
+    const selected = retrying ? lastSource : deps.getSelected()
+    const parts = retrying ? [...new Set(lastResult?.failures.map(f=>f.name) ?? [])] : parseNames()
     const error = invalidReason(parts)
     if (!selected || error) {
       update()
@@ -169,21 +189,30 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
     const source = { ...selected }
     runningSource = source
     busy = true
+    refreshRetry()
     update()
     status.classList.remove('asp-error')
-    status.textContent = `正在为「${source.name}」请求 ${parts.length} 个部件，可能需要数分钟。请勿重复提交；没有自动重试。`
+    status.textContent = `正在为「${source.name}」并行请求 ${parts.length} 个部件（最多 3 个并发），可能需要数分钟。请勿重复提交；没有自动重试。`
     let response: AutoSplitResponse
     try {
-      response = await deps.post<AutoSplitResponse>('/oc/auto-split', { assetId: source.id, parts })
+      const rectangles = deps.getBounds?.() ?? []
+      const bounds = retrying ? Object.fromEntries(Object.entries(lastBounds).filter(([name])=>parts.includes(name))) : Object.fromEntries(rectangles.filter(rect => parts.includes(rect.name.trim())).map(({name,x,y,width,height}) => [name.trim(),{x,y,width,height}]))
+      if (!retrying) { lastBounds = bounds; lastResult = undefined; lastSource = undefined; results.hidden = true; refreshRetry() }
+      response = await deps.post<AutoSplitResponse>('/oc/auto-split', { assetId: source.id, parts, bounds })
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : '无法取得服务器响应。'
+      if (retrying) lastResult = undefined // Unknown delivery: do not offer the same paid retry again.
       feedback(`拆分请求未完成：${message} 请求可能已被服务商执行或计费，请先检查素材库与服务商记录，勿盲目重复提交。未自动重试。`, true)
       busy = false
       runningSource = undefined
       update()
+      refreshRetry()
       return
     }
     try {
+      if (retrying && lastResult) response = {...response, parts:[...lastResult.parts,...response.parts]}
+      lastResult = response
+      lastSource = source
       renderResult(response, source)
       feedback(`拆分完成：${response.parts.length} 个成功，${response.failures.length} 个失败。请检查下方结果；未自动重试，也未切换原图选择。`, response.failures.length > 0)
       try { deps.onComplete(response, source) }
@@ -198,8 +227,9 @@ export function mountAutoSplit(host: HTMLElement, deps: AutoSplitDeps): { update
       busy = false
       runningSource = undefined
       update()
+      refreshRetry()
     }
-  })
+  }
   update()
   return { update }
 }

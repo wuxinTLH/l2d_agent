@@ -30,21 +30,25 @@ const MaxImageBytes = 32 << 20
 var validID = regexp.MustCompile(`^[a-f0-9]{24}$`)
 
 type Asset struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	Width     int       `json:"width"`
-	Height    int       `json:"height"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID                string           `json:"id"`
+	Name              string           `json:"name"`
+	URL               string           `json:"url"`
+	Width             int              `json:"width"`
+	Height            int              `json:"height"`
+	CreatedAt         time.Time        `json:"createdAt"`
+	SourcePlacement   *SourcePlacement `json:"sourcePlacement,omitempty"`
+	ProcessingWarning string           `json:"processingWarning,omitempty"`
 }
 type Provider struct {
-	BaseURL string
-	Model   string
-	Key     string
+	MattingDevice string
+	BaseURL       string
+	Model         string
+	Key           string
 }
 type Store struct {
-	Root   string
-	Client *http.Client
+	Root    string
+	Client  *http.Client
+	Matting func(context.Context, string) error
 }
 
 func New(root string) *Store {
@@ -111,7 +115,7 @@ func (s *Store) save(im image.Image, name string) (Asset, error) {
 		os.Remove(p)
 		return Asset{}, e
 	}
-	a := Asset{id, name, "/assets/" + id + ".png", im.Bounds().Dx(), im.Bounds().Dy(), time.Now().UTC()}
+	a := Asset{ID: id, Name: name, URL: "/assets/" + id + ".png", Width: im.Bounds().Dx(), Height: im.Bounds().Dy(), CreatedAt: time.Now().UTC()}
 	b, _ := json.MarshalIndent(a, "", "  ")
 	if e = os.WriteFile(filepath.Join(s.Root, id+".json"), b, 0600); e != nil {
 		os.Remove(p)

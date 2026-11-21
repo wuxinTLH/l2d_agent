@@ -1,4 +1,4 @@
-export interface Asset { id: string; name: string; url: string; width: number; height: number; createdAt: string }
+export interface Asset { id: string; name: string; url: string; width: number; height: number; createdAt: string; processingWarning?:string; sourcePlacement?: {assetId?:string;x:number;y:number;canvasWidth:number;canvasHeight:number;verifiedScale:boolean} }
 export interface Part { name: string; x: number; y: number; width: number; height: number }
 export function validateParts(parts: Part[], width: number, height: number): string | undefined {
   if (!parts.length) return '请先添加至少一个裁切部件。'

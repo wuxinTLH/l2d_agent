@@ -1,4 +1,5 @@
 import './live-workflow.scss'
+import { mountCubismAutomation } from './cubism-automation'
 
 type LiveWorkflowDeps = {
   post: <T>(path: string, body: unknown) => Promise<T>
@@ -19,6 +20,7 @@ export function mountLiveWorkflow(host: HTMLElement, deps: LiveWorkflowDeps): ()
     <section class="lw-card lw-authoring"><div class="lw-card-title"><span>模型准备 / 编辑器内制作</span><h3>部件 PNG ≠ 可运行的 Live2D 模型</h3></div><p>拆分出的 PNG 需要在 <strong>Cubism Editor</strong> 中整理图层、制作网格与变形器、绑定参数及物理效果，再导出模型、纹理、动作和表情。制作在真正的编辑器中完成，本页不能代替这些步骤。</p><p class="lw-hint">本页不实现自动建模、自动绑定或自动生成 moc3。Cubism 导出的 <code>.model3.json</code> 可用下方模型检查工具检查；结构检查不代表模型已完成绑定或运行效果已验证。</p></section>
     <section class="lw-card lw-feedback"><h3>操作反馈</h3><p data-role="feedback" role="status" aria-live="polite">等待操作。发现路径不会修改配置；启动请求不代表模型已制作完成。</p><details><summary>查看最近一次请求与原始响应</summary><pre data-role="output">尚无请求。</pre></details><p class="lw-hint">请在桌面确认 Cubism Editor 是否就绪。启动超时也可能已执行，请先检查桌面，不要盲目重复启动。导出后可用下方工具检查模型结构。</p></section>`
   host.append(root)
+  const disposeAutomation = mountCubismAutomation(root, deps)
 
   const get = <T extends HTMLElement = HTMLElement>(selector: string): T => root.querySelector<T>(selector)!
   let disposed = false
@@ -108,5 +110,5 @@ export function mountLiveWorkflow(host: HTMLElement, deps: LiveWorkflowDeps): ()
       void run(actions[action])
     })
   })
-  return () => { disposed = true; root.remove() }
+  return () => { disposed = true; disposeAutomation(); root.remove() }
 }

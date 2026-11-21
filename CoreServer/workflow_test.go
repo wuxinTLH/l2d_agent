@@ -58,7 +58,7 @@ func TestCubismConfig(t *testing.T) {
 		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil || out["cubismExecutable"] != want {
 			t.Fatalf("config read failed: %d %s", w.Code, w.Body.String())
 		}
-		if len(out) != 4 {
+		if len(out) != 5 || out["mattingDevice"] != "gpu" {
 			t.Fatalf("unexpected public config fields: %v", out)
 		}
 		reloaded, err := New(s.root, s.web)

@@ -46,7 +46,36 @@ func discoverCubismIn(roots []string) []string {
 	}
 	return out
 }
-func LaunchCubism(path string) error {
+func LaunchCubism(path string) error { return launchCubism(path, nil) }
+
+// OpenCubismPSD requests opening a file, but does not assert Editor import success.
+func OpenCubismPSD(editor, psd string) error {
+	if !filepath.IsAbs(psd) || !strings.EqualFold(filepath.Ext(psd), ".psd") {
+		return errors.New("absolute PSD path required")
+	}
+	st, err := os.Stat(psd)
+	if err != nil || !st.Mode().IsRegular() {
+		return errors.New("PSD export not found")
+	}
+	f, err := os.Open(psd)
+	if err != nil {
+		return errors.New("cannot read PSD export")
+	}
+	defer f.Close()
+	var header [6]byte
+	n, err := f.Read(header[:])
+	if err != nil || n != 6 || string(header[:4]) != "8BPS" || header[4] != 0 || header[5] != 1 {
+		return errors.New("invalid PSD export")
+	}
+	if !filepath.IsAbs(editor) || !cubismEditorName(editor) {
+		return errors.New("configure an absolute CubismEditor*.exe editor path")
+	}
+	if st, err := os.Stat(editor); err != nil || !st.Mode().IsRegular() {
+		return errors.New("Cubism Editor executable not found")
+	}
+	return openCubismDocument(editor, psd)
+}
+func launchCubism(path string, args []string) error {
 	if !filepath.IsAbs(path) || !cubismEditorName(path) {
 		return errors.New("configure an absolute CubismEditor*.exe editor path, not an installer")
 	}
@@ -54,7 +83,7 @@ func LaunchCubism(path string) error {
 	if err != nil || !st.Mode().IsRegular() {
 		return errors.New("Cubism Editor executable not found")
 	}
-	cmd := exec.Command(path)
+	cmd := exec.Command(path, args...)
 	cmd.Dir = filepath.Dir(path)
 	if err = cmd.Start(); err != nil {
 		return errors.New("Cubism Editor launch failed")

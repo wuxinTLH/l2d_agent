@@ -23,14 +23,18 @@ type Config struct {
 	ImageModel       string `json:"imageModel"`
 	ImageAPIKey      string `json:"imageApiKey,omitempty"`
 	CubismExecutable string `json:"cubismExecutable"`
+	MattingDevice    string `json:"mattingDevice"`
 }
 type Server struct {
-	root        string
-	web         string
-	mu          sync.RWMutex
-	config      Config
-	assets      *oc.Store
-	autoSplitMu sync.Mutex
+	root           string
+	web            string
+	mu             sync.RWMutex
+	config         Config
+	assets         *oc.Store
+	autoSplitMu    sync.Mutex
+	cubismMu       sync.Mutex
+	cubismBridge   *l2d.CubismBridge
+	cubismEndpoint string
 }
 
 func New(root, web string) (*Server, error) {
@@ -72,12 +76,14 @@ func body(w http.ResponseWriter, r *http.Request, v any) error {
 }
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	s.assetWorkflow(mux)
+	s.cubismAutomation(mux)
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, 200, map[string]any{"status": "ok", "modules": map[string]string{"oc": "available", "l2d": "existing-model companion"}})
 	})
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
 		c := s.snapshot()
-		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "cubismExecutable": c.CubismExecutable})
+		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "cubismExecutable": c.CubismExecutable, "mattingDevice": effectiveMattingDevice(c.MattingDevice)})
 	})
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("GET /api/assets", func(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +116,9 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /api/oc/auto-split", func(w http.ResponseWriter, r *http.Request) {
 		var v struct {
-			AssetID string   `json:"assetId"`
-			Parts   []string `json:"parts"`
+			AssetID string                        `json:"assetId"`
+			Parts   []string                      `json:"parts"`
+			Bounds  map[string]oc.AutoSplitBounds `json:"bounds"`
 		}
 		if e := body(w, r, &v); e != nil {
 			fail(w, e)
@@ -123,7 +130,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		defer s.autoSplitMu.Unlock()
 		c := s.snapshot()
-		out, e := s.assets.AutoSplit(r.Context(), oc.Provider{BaseURL: c.ImageBaseURL, Model: c.ImageModel, Key: c.ImageAPIKey}, v.AssetID, v.Parts)
+		out, e := s.assets.AutoSplitWithBounds(r.Context(), oc.Provider{BaseURL: c.ImageBaseURL, Model: c.ImageModel, Key: c.ImageAPIKey, MattingDevice: effectiveMattingDevice(c.MattingDevice)}, v.AssetID, v.Parts, v.Bounds)
 		if e != nil {
 			fail(w, e)
 			return
@@ -218,6 +225,7 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		ImageModel       string  `json:"imageModel"`
 		ImageAPIKey      *string `json:"imageApiKey"`
 		CubismExecutable *string `json:"cubismExecutable"`
+		MattingDevice    *string `json:"mattingDevice"`
 	}
 	if e := body(w, r, &v); e != nil {
 		fail(w, e)
@@ -233,6 +241,13 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	c := s.config
 	c.ImageBaseURL = v.ImageBaseURL
 	c.ImageModel = v.ImageModel
+	if v.MattingDevice != nil {
+		if *v.MattingDevice != "gpu" && *v.MattingDevice != "cpu" {
+			fail(w, errors.New("mattingDevice must be gpu or cpu"))
+			return
+		}
+		c.MattingDevice = *v.MattingDevice
+	}
 	if v.CubismExecutable != nil {
 		c.CubismExecutable = *v.CubismExecutable
 	}

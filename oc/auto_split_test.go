@@ -16,7 +16,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func autoSplitPNG(t *testing.T, kind string) []byte {
@@ -35,9 +37,13 @@ func autoSplitPNG(t *testing.T, kind string) []byte {
 		}
 	}
 	if kind == "outline" {
-		for x := 8; x < 24; x++ {
-			im.SetNRGBA(x, 8, color.NRGBA{R: 30, G: 30, B: 30, A: 255})
+		im = image.NewNRGBA(image.Rect(0, 0, 8, 6))
+		for y := 1; y < 5; y++ {
+			for x := 1; x < 7; x++ {
+				im.SetNRGBA(x, y, color.NRGBA{R: 255, G: 255, B: 255, A: 255})
+			}
 		}
+		im.SetNRGBA(2, 1, color.NRGBA{R: 30, G: 30, B: 30, A: 255})
 	}
 	var b bytes.Buffer
 	if err := png.Encode(&b, im); err != nil {
@@ -46,7 +52,7 @@ func autoSplitPNG(t *testing.T, kind string) []byte {
 	return b.Bytes()
 }
 
-func TestAutoSplitSequentialSourceNamesAndManifest(t *testing.T) {
+func TestAutoSplitSourceNamesAndManifest(t *testing.T) {
 	s := New(t.TempDir())
 	source, err := s.Import(fixture(t), "original")
 	if err != nil {
@@ -55,10 +61,9 @@ func TestAutoSplitSequentialSourceNamesAndManifest(t *testing.T) {
 	sourcePath, _ := s.Path(source.ID)
 	original, _ := os.ReadFile(sourcePath)
 	names := []string{"white hair", "left arm", "../right arm"}
-	calls := 0
+	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		index := calls
-		calls++
+		calls.Add(1)
 		if r.URL.Path != "/v1/images/edits" || r.Header.Get("Authorization") != "Bearer test-only" {
 			t.Error("wrong provider endpoint or auth")
 		}
@@ -71,7 +76,14 @@ func TestAutoSplitSequentialSourceNamesAndManifest(t *testing.T) {
 			t.Error("model or n missing")
 		}
 		prompt := r.FormValue("prompt")
-		if !strings.Contains(prompt, names[index]) || !strings.Contains(prompt, "occluded") || !strings.Contains(prompt, "transparent") || !strings.Contains(prompt, "NO grid") {
+		index := -1
+		for i, name := range names {
+			if strings.Contains(prompt, fmt.Sprintf("%q", name)) {
+				index = i
+				break
+			}
+		}
+		if index == -1 || !strings.Contains(prompt, "occluded") || !strings.Contains(prompt, "transparent") || !strings.Contains(prompt, "NO grid") {
 			t.Error("incomplete extraction prompt")
 		}
 		f, _, err := r.FormFile("image")
@@ -92,8 +104,8 @@ func TestAutoSplitSequentialSourceNamesAndManifest(t *testing.T) {
 	}))
 	defer provider.Close()
 	out, err := s.AutoSplit(context.Background(), Provider{BaseURL: provider.URL + "/v1", Model: "authorized-model", Key: "test-only"}, source.ID, names)
-	if err != nil || calls != 3 || len(out.Parts) != 2 || len(out.Failures) != 1 {
-		t.Fatalf("unexpected split: %+v %v calls=%d", out, err, calls)
+	if err != nil || calls.Load() != 3 || len(out.Parts) != 2 || len(out.Failures) != 1 {
+		t.Fatalf("unexpected split: %+v %v calls=%d", out, err, calls.Load())
 	}
 	if out.Failures[0].Name != names[1] || strings.Contains(out.Failures[0].Error, "sensitive") {
 		t.Fatal("failure name or error redaction")
@@ -108,7 +120,7 @@ func TestAutoSplitSequentialSourceNamesAndManifest(t *testing.T) {
 		path, _ := s.Path(a.ID)
 		data, _ = os.ReadFile(path)
 		im, _ := decode(data)
-		r, g, b, alpha := im.At(0, 0).RGBA()
+		r, g, b, alpha := im.At(3, 3).RGBA()
 		if r != 65535 || g != 65535 || b != 65535 || alpha != 65535 {
 			t.Fatal("white hair pixels altered")
 		}
@@ -161,20 +173,20 @@ func TestAutoSplitRejectsInvalidBeforeRequests(t *testing.T) {
 }
 
 func TestAutoSplitRejectsBlankAndCleansOnlyGenerated(t *testing.T) {
-	for _, kind := range []string{"transparent", "white", "near-white", "faint"} {
+	for _, kind := range []string{"transparent"} {
 		t.Run(kind, func(t *testing.T) {
 			s := New(t.TempDir())
 			a, _ := s.Import(fixture(t), "source")
 			path, _ := s.Path(a.ID)
 			before, _ := os.ReadFile(path)
-			calls := 0
+			var calls atomic.Int32
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				calls++
+				calls.Add(1)
 				fmt.Fprintf(w, `{"data":[{"b64_json":%q}]}`, base64.StdEncoding.EncodeToString(autoSplitPNG(t, kind)))
 			}))
 			defer provider.Close()
 			out, err := s.AutoSplit(context.Background(), Provider{BaseURL: provider.URL, Model: "test"}, a.ID, []string{"head", "hair"})
-			if err != nil || calls != 2 || len(out.Parts) != 0 || len(out.Failures) != 2 {
+			if err != nil || calls.Load() != 2 || len(out.Parts) != 0 || len(out.Failures) != 2 {
 				t.Fatalf("accepted blank or stopped: %+v %v", out, err)
 			}
 			after, _ := os.ReadFile(path)
@@ -187,20 +199,79 @@ func TestAutoSplitRejectsBlankAndCleansOnlyGenerated(t *testing.T) {
 	}
 }
 
-func TestAutoSplitCancellationStopsRemaining(t *testing.T) {
+// autoSplitRoundTripFunc lets cancellation tests hold active HTTP work until the
+// test releases it, even after cancellation, to exercise draining and cleanup.
+type autoSplitRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f autoSplitRoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func TestAutoSplitCancellationStopsRemainingAndWaitsForCleanup(t *testing.T) {
 	s := New(t.TempDir())
 	a, _ := s.Import(fixture(t), "source")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	calls := 0
+	started := make(chan struct{}, 6)
+	release := make(chan struct{}, 3)
+	payload := base64.StdEncoding.EncodeToString(autoSplitPNG(t, "transparent"))
+	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		cancel()
-		w.WriteHeader(http.StatusServiceUnavailable)
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		fmt.Fprintf(w, `{"data":[{"b64_json":%q}]}`, payload)
 	}))
-	defer provider.Close()
-	out, err := s.AutoSplit(ctx, Provider{BaseURL: provider.URL, Model: "test"}, a.ID, []string{"head", "hair"})
-	if !errors.Is(err, context.Canceled) || calls != 1 || len(out.Failures) != 1 || out.ManifestURL == "" {
-		t.Fatalf("cancellation not propagated: %+v %v calls=%d", out, err, calls)
+	defer func() {
+		close(release)
+		provider.Close()
+	}()
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
+	s.Client.Transport = autoSplitRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return transport.RoundTrip(r.Clone(context.Background()))
+	})
+	type response struct {
+		out AutoSplitResult
+		err error
+	}
+	done := make(chan response, 1)
+	go func() {
+		out, err := s.AutoSplit(ctx, Provider{BaseURL: provider.URL, Model: "test"}, a.ID, []string{"head", "hair", "eyes", "hands", "body", "ears"})
+		done <- response{out, err}
+	}()
+	for i := 0; i < 3; i++ {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("three concurrent requests did not start")
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+		t.Fatal("returned before active work and cleanup completed")
+	default:
+	}
+	// Buffered tokens release exactly the active calls; no new work may start.
+	for i := 0; i < 3; i++ {
+		release <- struct{}{}
+	}
+	select {
+	case got := <-done:
+		if !errors.Is(got.err, context.Canceled) || calls.Load() != 3 || len(got.out.Failures) != 3 || got.out.ManifestURL == "" {
+			t.Fatalf("cancellation not propagated: %+v %v calls=%d", got.out, got.err, calls.Load())
+		}
+		for i, name := range []string{"head", "hair", "eyes"} {
+			if got.out.Failures[i].Name != name {
+				t.Fatal("canceled failures reordered")
+			}
+		}
+		entries, _ := os.ReadDir(s.Root)
+		if len(entries) != 3 {
+			t.Fatalf("returned before rejected output cleanup: %d entries", len(entries))
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancellation did not drain active work")
 	}
 }

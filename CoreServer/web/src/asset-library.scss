@@ -1,0 +1,20 @@
+.library-tools { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; > span {font-size:12px;color:#aab79f;} }
+.library-group-panel {border:1px solid #394337;border-radius:8px;padding:12px;margin-bottom:14px; .helper {margin-bottom:0;} }
+.library-tools > label {display:flex;align-items:center;gap:8px;font-size:12px;color:#b7c6ae;min-width:0; input, select {width:auto;max-width:100%;min-width:0;padding:8px;border:1px solid #485440;border-radius:6px;background:#1b231f;color:#e1e7dc;} input {width:180px;} select {max-width:260px;} }
+.asset-group-name {display:block;overflow-wrap:anywhere;margin-top:5px;}
+.danger-button {border:1px solid #9c5c51;background:#422923;color:#ffd6cc;border-radius:6px;padding:10px 13px;font-size:12px;}
+.library .asset-card {display:flex;flex-direction:column;gap:7px;}
+.asset-checkbox {display:flex;align-items:center;gap:6px;font-size:11px;color:#b7c6ae; input {width:16px;height:16px;padding:0;accent-color:#c7f59a;} }
+.asset-preview-button {background:transparent;border:0;padding:0;text-align:left;min-width:0;width:100%; small {color:#8c969a;font-size:10px;} }
+.asset-delete {align-self:flex-end;color:#e9ad9f;}
+.delete-dialog ul {max-height:220px;overflow:auto;overflow-wrap:anywhere;line-height:1.9;}
+[data-delete-status], [data-export-status] {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.8;}
+.delete-dialog, .psd-dialog {margin:auto;}
+.psd-dialog {width:1050px; fieldset {border:0;padding:0;margin:0;min-width:0;} }
+.psd-size {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;label {font-size:11px;color:#aeb8aa;}input {margin-top:6px;padding:9px;}}
+.psd-editor-layout {display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;[data-layers] {max-height:440px;overflow:auto;} }
+.psd-layer {display:flex;gap:10px;padding:12px 0;border-bottom:1px solid #343d37;align-items:center;>div:last-child {display:flex;flex-direction:column;gap:10px;flex-shrink:0;} }
+.psd-layer-fields {flex:1;min-width:0;>label {font-size:11px;display:block;}input {padding:8px;margin-top:5px;}small {font-size:10px;color:#929c9f;display:block;margin-top:7px;}}
+.psd-thumbnail {width:54px;height:70px;flex-shrink:0;img {width:100%;height:100%;object-fit:contain;}}
+.psd-composite {position:relative;overflow:hidden;width:100%;border:1px solid #56604d;img {position:absolute;max-width:none;object-fit:fill;}}
+@media(max-width:700px) {.psd-editor-layout {grid-template-columns:minmax(0,1fr);} .psd-thumbnail {width:35px;} .library-tools {gap:9px;} }
