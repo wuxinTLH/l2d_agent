@@ -48,7 +48,7 @@ func discoverCubismIn(roots []string) []string {
 }
 func LaunchCubism(path string) error {
 	if !filepath.IsAbs(path) || !cubismEditorName(path) {
-		return errors.New("configure an absolute CubismEditor*.exe editor path, not an installer or ViewerEX")
+		return errors.New("configure an absolute CubismEditor*.exe editor path, not an installer")
 	}
 	st, err := os.Stat(path)
 	if err != nil || !st.Mode().IsRegular() {

@@ -23,8 +23,6 @@ type Config struct {
 	ImageModel       string `json:"imageModel"`
 	ImageAPIKey      string `json:"imageApiKey,omitempty"`
 	CubismExecutable string `json:"cubismExecutable"`
-	ViewerExecutable string `json:"viewerExecutable"`
-	ExAPIURL         string `json:"exapiUrl"`
 }
 type Server struct {
 	root        string
@@ -39,7 +37,7 @@ func New(root, web string) (*Server, error) {
 	if e := os.MkdirAll(root, 0700); e != nil {
 		return nil, e
 	}
-	s := &Server{root: root, web: web, config: Config{ImageBaseURL: "https://api.openai.com/v1", ImageModel: "gpt-image-1", ExAPIURL: l2d.DefaultExAPI}, assets: oc.New(filepath.Join(root, "assets"))}
+	s := &Server{root: root, web: web, config: Config{ImageBaseURL: "https://api.openai.com/v1", ImageModel: "gpt-image-1"}, assets: oc.New(filepath.Join(root, "assets"))}
 	b, e := os.ReadFile(filepath.Join(root, "config.json"))
 	if e == nil {
 		if e = json.Unmarshal(b, &s.config); e != nil {
@@ -79,7 +77,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
 		c := s.snapshot()
-		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "cubismExecutable": c.CubismExecutable, "viewerExecutable": c.ViewerExecutable, "exapiUrl": c.ExAPIURL})
+		jsonOut(w, 200, map[string]any{"imageBaseUrl": c.ImageBaseURL, "imageModel": c.ImageModel, "hasImageKey": c.ImageAPIKey != "", "cubismExecutable": c.CubismExecutable})
 	})
 	mux.HandleFunc("PUT /api/config", s.putConfig)
 	mux.HandleFunc("GET /api/assets", func(w http.ResponseWriter, r *http.Request) {
@@ -158,24 +156,6 @@ func (s *Server) Handler() http.Handler {
 		}
 		jsonOut(w, 200, map[string]string{"status": "started", "note": "Cubism process started; editor readiness, license and project state are unverified."})
 	})
-	mux.HandleFunc("GET /api/l2d/status", func(w http.ResponseWriter, r *http.Request) {
-		c := s.snapshot()
-		_, e := os.Stat(c.ViewerExecutable)
-		jsonOut(w, 200, map[string]any{"configured": c.ViewerExecutable != "" && e == nil, "exapiUrl": c.ExAPIURL, "capabilities": []string{"inspect-cubism-export", "launch-viewer", "exapi-websocket-command"}, "note": "Configuration only; not a live connection check. No automatic mesh, rig or moc3 compilation. ExAPI load expects ViewerEX model.json configuration, not a guaranteed direct model3.json import."})
-	})
-	mux.HandleFunc("POST /api/l2d/probe", func(w http.ResponseWriter, r *http.Request) {
-		endpoint := s.snapshot().ExAPIURL
-		out := map[string]any{"connected": false, "endpoint": endpoint}
-		if e := l2d.Probe(r.Context(), endpoint); e != nil {
-			out["error"] = e.Error()
-		} else {
-			out["connected"] = true
-		}
-		jsonOut(w, 200, out)
-	})
-	mux.HandleFunc("POST /api/l2d/discover", func(w http.ResponseWriter, r *http.Request) {
-		jsonOut(w, 200, map[string]any{"candidates": l2d.Discover(), "note": "仅搜索常见安装目录；自定义 Steam 库或便携安装请手动填写。候选路径不会自动保存或启动。"})
-	})
 	mux.HandleFunc("POST /api/l2d/inspect", func(w http.ResponseWriter, r *http.Request) {
 		var v struct {
 			ModelPath string `json:"modelPath"`
@@ -190,28 +170,6 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		jsonOut(w, 200, out)
-	})
-	mux.HandleFunc("POST /api/l2d/launch", func(w http.ResponseWriter, r *http.Request) {
-		if e := l2d.Launch(s.snapshot().ViewerExecutable); e != nil {
-			fail(w, e)
-			return
-		}
-		jsonOut(w, 200, map[string]string{"status": "process-started; application readiness is not verified"})
-	})
-	mux.HandleFunc("POST /api/l2d/command", func(w http.ResponseWriter, r *http.Request) {
-		var v struct {
-			Message json.RawMessage `json:"message"`
-		}
-		if e := body(w, r, &v); e != nil {
-			fail(w, e)
-			return
-		}
-		res, e := l2d.Command(r.Context(), s.snapshot().ExAPIURL, v.Message)
-		if e != nil {
-			fail(w, e)
-			return
-		}
-		jsonOut(w, 200, res)
 	})
 	assetName := regexp.MustCompile(`^[a-f0-9]{24}\.(png|manifest\.json)$`)
 	mux.HandleFunc("GET /assets/{name}", func(w http.ResponseWriter, r *http.Request) {
@@ -260,8 +218,6 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		ImageModel       string  `json:"imageModel"`
 		ImageAPIKey      *string `json:"imageApiKey"`
 		CubismExecutable *string `json:"cubismExecutable"`
-		ViewerExecutable string  `json:"viewerExecutable"`
-		ExAPIURL         string  `json:"exapiUrl"`
 	}
 	if e := body(w, r, &v); e != nil {
 		fail(w, e)
@@ -272,10 +228,6 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 		fail(w, errors.New("invalid image base URL or model"))
 		return
 	}
-	if e = l2d.ValidateURL(v.ExAPIURL); e != nil {
-		fail(w, e)
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c := s.config
@@ -284,8 +236,6 @@ func (s *Server) putConfig(w http.ResponseWriter, r *http.Request) {
 	if v.CubismExecutable != nil {
 		c.CubismExecutable = *v.CubismExecutable
 	}
-	c.ViewerExecutable = v.ViewerExecutable
-	c.ExAPIURL = v.ExAPIURL
 	if v.ImageAPIKey != nil {
 		c.ImageAPIKey = *v.ImageAPIKey
 	}

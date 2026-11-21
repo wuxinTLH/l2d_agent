@@ -29,10 +29,10 @@ func TestSecurityAndConfig(t *testing.T) {
 	if w := request("GET", "/api/health", "", "evil.example", ""); w.Code != 403 {
 		t.Fatal("DNS rebinding allowed")
 	}
-	if w := request("POST", "/api/l2d/launch", "{}", "", "https://evil.example"); w.Code != 403 {
+	if w := request("POST", "/api/l2d/cubism/launch", "{}", "", "https://evil.example"); w.Code != 403 {
 		t.Fatal("cross origin allowed")
 	}
-	payload := `{"imageBaseUrl":"https://api.openai.com/v1","imageModel":"test","imageApiKey":"super-secret","viewerExecutable":"","exapiUrl":"ws://127.0.0.1:10086/api"}`
+	payload := `{"imageBaseUrl":"https://api.openai.com/v1","imageModel":"test","imageApiKey":"super-secret","cubismExecutable":""}`
 	if w := request("PUT", "/api/config", payload, "", ""); w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}

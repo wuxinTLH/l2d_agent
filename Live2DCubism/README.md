@@ -1,6 +1,6 @@
 # Live2D Cubism Editor 本地目录
 
-目标是 Live2D Cubism Editor 建模编辑器，不是 Live2DViewerEX。工作室启动时自动创建本目录。
+本目录用于 Live2D Cubism Editor 建模编辑器。工作室启动时自动创建。
 
 官方下载：https://www.live2d.com/zh-CHS/cubism/download/editor/
 
@@ -10,4 +10,4 @@
 
 工作室「发现 Cubism 路径」只检测本目录和常见安装位置，不自动下载、安装、激活、绑定参数或生成 moc3。未附带软件本体。第三方安装包和程序禁止提交到仓库。
 
-Cubism 用于导入整理好的分层素材、网格/变形器/参数/物理与模型导出；ViewerEX 是可选展示工具，其 ExAPI 不是 Cubism 接口。
+Cubism 用于导入整理好的分层素材、制作网格/变形器/参数/物理与模型导出。

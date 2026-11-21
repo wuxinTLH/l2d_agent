@@ -8,11 +8,7 @@ bin/
 .env
 .env.*
 !.env.example
-# Third-party ViewerEX installation stays local; publish documentation only.
-/live2dViewerEX/*
-/L2dViewerEX/*
-!/L2dViewerEX/README.md
-!/L2dViewerEX/官方下载.url
+# Third-party editor installation stays local; publish documentation only.
 /Live2DCubism/*
 !/Live2DCubism/README.md
 !/Live2DCubism/官方下载.url

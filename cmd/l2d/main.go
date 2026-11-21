@@ -1,8 +1,7 @@
-// l2d is a standalone existing-model companion CLI, independent of CoreServer.
+// l2d inspects existing Cubism exports and discovers or launches Cubism Editor.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"local/l2dagent/l2d"
@@ -11,22 +10,20 @@ import (
 )
 
 func main() {
-	action := flag.String("action", "inspect", "inspect, launch, command")
+	action := flag.String("action", "inspect", "inspect, cubism-discover, cubism-launch")
 	model := flag.String("model", "", "Cubism model3.json path")
-	exe := flag.String("exe", "", "absolute ViewerEX exe path")
-	endpoint := flag.String("endpoint", l2d.DefaultExAPI, "local WebSocket endpoint")
-	message := flag.String("message", `{"msg":10000,"msgId":1}`, "official ExAPI JSON envelope")
+	exe := flag.String("exe", "", "absolute CubismEditor*.exe editor path")
 	flag.Parse()
 	var out any
 	var e error
 	switch *action {
 	case "inspect":
 		out, e = l2d.Inspect(*model)
-	case "launch":
-		e = l2d.Launch(*exe)
-		out = map[string]string{"status": "process started; readiness unverified"}
-	case "command":
-		out, e = l2d.Command(context.Background(), *endpoint, json.RawMessage(*message))
+	case "cubism-discover":
+		out = map[string]any{"candidates": l2d.DiscoverCubism()}
+	case "cubism-launch":
+		e = l2d.LaunchCubism(*exe)
+		out = map[string]string{"status": "process started; editor readiness, license and project state unverified"}
 	default:
 		log.Fatal("unknown action")
 	}

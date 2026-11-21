@@ -19,7 +19,7 @@ func TestCubismDiscoveryAndLaunchValidation(t *testing.T) {
 	if len(found) != 1 || found[0] != exe {
 		t.Fatalf("wrong candidates %v", found)
 	}
-	for _, p := range []string{"relative.exe", filepath.Join(root, "Live2DViewerEX.exe"), filepath.Join(root, "CubismEditorSetup.exe"), filepath.Join(root, "CubismEditorMissing.exe")} {
+	for _, p := range []string{"relative.exe", filepath.Join(root, "OtherEditor.exe"), filepath.Join(root, "CubismEditorSetup.exe"), filepath.Join(root, "CubismEditorMissing.exe")} {
 		if LaunchCubism(p) == nil {
 			t.Fatalf("accepted invalid editor %s", p)
 		}

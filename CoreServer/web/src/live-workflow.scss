@@ -17,7 +17,7 @@
   .lw-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 0; }
   .lw-kicker { font-size: 9px; letter-spacing: 2px; color: #a9c58f; }
   .lw-badge { color: #bdd3a9; border: 1px solid #45533b; padding: 5px 10px; border-radius: 30px; font-size: 10px; white-space: nowrap; }
-  .lw-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0; margin: 0; list-style: none; gap: 8px; }
+  .lw-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0; margin: 0; list-style: none; gap: 8px; }
   .lw-steps li { padding: 12px; border: 1px solid #394333; border-radius: 7px; background: #1d241c; font-size: 11px; }
   .lw-steps b { color: #c7f59a; font-family: Consolas, monospace; font-size: 11px; margin-right: 9px; }
   .lw-card { border: 1px solid #303936; border-radius: 10px; background: #191e1c; padding: 22px; min-width: 0; }
