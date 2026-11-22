@@ -1,0 +1,4 @@
+# Bundle declaration only; this file does not install or enable a profile plugin.
+- insert:
+    - id: cubism
+      name: dsh-cubism

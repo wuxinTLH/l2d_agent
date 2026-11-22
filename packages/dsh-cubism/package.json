@@ -1,0 +1,17 @@
+{
+  "name": "dsh-cubism",
+  "version": "0.0.3-a",
+  "private": true,
+  "description": "Project-local DSH tools for the l2d agent studio and supported Cubism Editor API bridge",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
+  "files": ["src", "scripts/build-eye-rig.ps1", "scripts/build-face-rig.ps1", "cordis.patch.yml", "README.md"],
+  "engines": { "node": ">=24.9.0" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": { "test": "node --test test/*.test.mjs", "check:sdk": "node test/check-sdk.mjs" },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "~3.19.0"
+  }
+}

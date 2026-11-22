@@ -1,7 +1,7 @@
 {
   "name": "oc-live2d-studio",
   "private": true,
-  "version": "0.0.2-a",
+  "version": "0.0.3-a",
   "type": "module",
   "scripts": { "dev": "vite --host 127.0.0.1", "build": "tsc --noEmit && vite build", "preview": "vite preview --host 127.0.0.1", "test": "node --experimental-strip-types --test tests/*.test.ts" },
   "devDependencies": { "@tailwindcss/vite": "^4.1.0", "tailwindcss": "^4.1.0", "sass": "^1.83.0", "typescript": "~5.7.3", "vite": "^6.1.0" }

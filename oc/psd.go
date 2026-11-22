@@ -144,7 +144,7 @@ func (s *Store) ExportPSD(req PSDRequest) (PSDResult, error) {
 	if layerLen%2 != 0 {
 		layerLen++
 	}
-	size := int64(26+4+4+4) + 4 + layerLen + 4 + 2 + int64(req.Width)*int64(req.Height)*4
+	size := int64(26+4+4+28+4) + 4 + layerLen + 4 + 2 + int64(req.Width)*int64(req.Height)*4
 	if size > MaxPSDBytes {
 		return PSDResult{}, errors.New("PSD output exceeds 512 MiB")
 	}
@@ -172,7 +172,19 @@ func (s *Store) ExportPSD(req PSDRequest) (PSDResult, error) {
 	psdNumber(out, uint16(8))
 	psdNumber(out, uint16(3))
 	psdNumber(out, uint32(0))
-	psdNumber(out, uint32(0)) // color mode data, image resources
+	// Cubism 5.3's reader mishandles a zero-length image resource section.
+	// Include standard ResolutionInfo (1005), 72 dpi, pixels/inch.
+	psdNumber(out, uint32(28))
+	out.Write([]byte("8BIM"))
+	psdNumber(out, uint16(1005))
+	psdNumber(out, uint16(0)) // empty Pascal name plus even padding
+	psdNumber(out, uint32(16))
+	psdNumber(out, uint32(72<<16))
+	psdNumber(out, uint16(1))
+	psdNumber(out, uint16(1))
+	psdNumber(out, uint32(72<<16))
+	psdNumber(out, uint16(1))
+	psdNumber(out, uint16(1))
 	psdNumber(out, uint32(4+layerLen+4))
 	psdNumber(out, uint32(layerLen))
 	psdNumber(out, int16(-len(entries)))

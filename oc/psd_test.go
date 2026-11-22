@@ -255,7 +255,7 @@ func TestPSDWireOrderBottomToTop(t *testing.T) {
 	}
 	// Fixed PSD v1 layout: 26-byte header, two empty sections, two section
 	// lengths, signed layer count; then three 88-byte records (one-letter names).
-	const recordsStart, recordSize = 44, 88
+	const recordsStart, recordSize = 72, 88
 	const channelsStart = recordsStart + 3*recordSize
 	const channelsEnd = channelsStart + 20 + 16 + 12
 	const mergedStart = channelsEnd + 4 + 2 // empty global mask, raw compression

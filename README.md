@@ -1,6 +1,8 @@
 # 人人皆可建模 · l2d_agent
 
-当前版本：**v0.0.2a**（npm 元数据为兼容 SemVer 的 `0.0.2-a`）。
+当前版本：**v0.0.3a**（npm 元数据为兼容 SemVer 的 `0.0.3-a`）。
+
+此版本包含 Cubism 兼容 PSD 修复及受限测试角色的一键网格/关键形插件。上下眼睑与上下唇沿曲线向共同中线闭合仍在开发，尚未通过 Cubism FREE 实机验收；不将局部顶点试验作为完成结果。详见 `docs/v0.0.3a-status.md`。
 
 仅本机运行的人设素材与 Live2D Cubism Editor 工作台。后端 Go，前端 Vite + TypeScript + SCSS + Tailwind CSS。没有云端部署、账号系统或 Blender/Unity 实现。调用远程图片 API 需要联网，可能产生费用。
 
